@@ -1,77 +1,117 @@
 '''
 Created on Feb 14, 2020
 
-@author: USER
+@author: YANI STRATEV
+ULTIMO FUNCIONAL 
 '''
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional 
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from yahoo_fin import stock_info as si
 from collections import deque
-
+import requests
+from stockstats import StockDataFrame
 import numpy as np
 import pandas as pd
 import random
+import datetime
+from parameters import bidirectional
+from pandas.tests.frame.test_validate import dataframe
 
 
-def load_data(ticker, n_steps=50, scale=True, shuffle=True, lookup_step=1, 
-                test_size=0.2, feature_columns=['adjclose', 'volume', 'open', 'high', 'low']):
-    """
-    Loads data from Yahoo Finance source, as well as scaling, shuffling, normalizing and splitting.
-    Params:
-        ticker (str/pd.DataFrame): the ticker you want to load, examples include AAPL, TESL, etc.
-        n_steps (int): the historical sequence length (i.e window size) used to predict, default is 50
-        scale (bool): whether to scale prices from 0 to 1, default is True
-        shuffle (bool): whether to shuffle the data, default is True
-        lookup_step (int): the future lookup step to predict, default is 1 (e.g next day)
-        test_size (float): ratio for test data, default is 0.2 (20% testing data)
-        feature_columns (list): the list of features to use to feed into the model, default is everything grabbed from yahoo_fin
-    """
-    # see if ticker is already a loaded stock from yahoo finance
+#Funcion para Tingo a Json a Frame
+# @return frame
+
+def get_stock_dataJSON(stock_sym, start_date, end_date,index_as_date = True):
+    base_url = 'https://api.tiingo.com/tiingo/daily/'+stock_sym + '/prices?'
+    token = 'da2ac110cdd4a6586434808a9c2a275af4fc5693'
+    payload = {
+        'token' : token,
+        'startDate' : start_date,
+        'endDate' : end_date
+        }
+    response = requests.get(base_url,params=payload)
+    data = response.json()
+    #df = pd.DataFrame.from_records(data).T         
+    df = pd.io.json.json_normalize(data)
+    dates = []   
+    ticker = stock_sym
+    for arr_date in df['date']:
+       
+        final_date = arr_date.split("T")[0]
+        final_date = datetime.datetime.strptime(final_date, "%Y-%m-%d")
+        final_date = datetime.datetime.timestamp(final_date)
+        dates.append(final_date)
+    df["date"] = dates
+    # get open / high / low / close data
+    
+    # get the date info
+    temp_time = df['date']
+    df.index = pd.to_datetime(temp_time, unit = "s")
+    df.index = df.index.map(lambda dt: dt.floor("d"))
+    
+    
+    frame = df[['close', 'volume', 'open', 'high', 'low']]
+        
+    frame['ticker'] = ticker.upper()
+    
+    if not index_as_date:  
+        frame = frame.reset_index()
+        frame.rename(columns = {"index": "date"}, inplace = True)
+        
+    return frame
+
+
+def load_data(ticker, n_steps=70, shuffle=True, n_days=10, 
+                test_size=0.3, feature_columns=['adjclose', 'volume', 'open', 'high', 'low']):
+  
+    # Comprobar si se trata de un strig o se le pasa un DataFrame
     if isinstance(ticker, str):
-        # load it from yahoo_fin library
-        df = si.get_data(ticker,start_date='01/01/2016')
+        # cargar de la liberia
+        dataframe = si.get_data(ticker,start_date='01/01/2005')
     elif isinstance(ticker, pd.DataFrame):
         # already loaded, use it directly
-        df = ticker
+        dataframe = ticker
     else:
         raise TypeError("ticker can be either a str or a `pd.DataFrame` instances")
-
+    dataframe = StockDataFrame.retype(dataframe)
+    dataframe['macd'] = dataframe.get('macd') # calculate MACD
+    dataframe['atr'] = dataframe.get('atr') # calculate ATR
+    dataframe['dma'] = dataframe.get('dma') # calculate DMA
     # this will contain all the elements we want to return from this function
     result = {}
     # we will also return the original dataframe itself
-    result['df'] = df.copy()
+    result['dataframe'] = dataframe.copy()
 
     # make sure that the passed feature_columns exist in the dataframe
     for col in feature_columns:
-        assert col in df.columns
-
-    if scale:
-        column_scaler = {}
-        # scale the data (prices) from 0 to 1
-        for column in feature_columns:
-            scaler = preprocessing.MinMaxScaler()
-            df[column] = scaler.fit_transform(np.expand_dims(df[column].values, axis=1))
-            column_scaler[column] = scaler
-
-        # add the MinMaxScaler instances to the result returned
-        result["column_scaler"] = column_scaler
+        assert col in dataframe.columns
+        
+    column_scaler = {}
+    # scale the data (prices) from 0 to 1
+    for column in feature_columns:
+        scaler = preprocessing.MinMaxScaler()
+        dataframe[column] = scaler.fit_transform(np.expand_dims(dataframe[column].values, axis=1))
+        column_scaler[column] = scaler
+    
+    # add the MinMaxScaler instances to the result returned
+    result["column_scaler"] = column_scaler
 
     # add the target column (label) by shifting by `lookup_step`
-    df['future'] = df['adjclose'].shift(-lookup_step)
+    dataframe['future'] = dataframe['adjclose'].shift(-n_days)
 
     # last `lookup_step` columns contains NaN in future column
     # get them before droping NaNs
-    last_sequence = np.array(df[feature_columns].tail(lookup_step))
+    last_sequence = np.array(dataframe[feature_columns].tail(n_days))
     
     # drop NaNs
-    df.dropna(inplace=True)
+    dataframe.dropna(inplace=True)
 
     sequence_data = []
     sequences = deque(maxlen=n_steps)
 
-    for entry, target in zip(df[feature_columns].values, df['future'].values):
+    for entry, target in zip(dataframe[feature_columns].values, dataframe['future'].values):
         sequences.append(entry)
         if len(sequences) == n_steps:
             sequence_data.append([np.array(sequences), target])
@@ -82,7 +122,7 @@ def load_data(ticker, n_steps=50, scale=True, shuffle=True, lookup_step=1,
     last_sequence = list(sequences) + list(last_sequence)
     # shift the last sequence by -1
     last_sequence = np.array(pd.DataFrame(last_sequence).shift(-1).dropna())
-    # add to result
+    # se anade al resultado
     result['last_sequence'] = last_sequence
     
     # construct the X's and y's
@@ -98,30 +138,45 @@ def load_data(ticker, n_steps=50, scale=True, shuffle=True, lookup_step=1,
     # reshape X to fit the neural network
     X = X.reshape((X.shape[0], X.shape[2], X.shape[1]))
     
-    # split the dataset
+    # Dividimos el resultado
     result["X_train"], result["X_test"], result["y_train"], result["y_test"] = train_test_split(X, y, 
                                                                                 test_size=test_size, shuffle=shuffle)
-    # return the result
     return result
 
 
-def create_model(input_length, units=256, cell=LSTM, n_layers=2, dropout=0.3,
-                loss="mean_absolute_error", optimizer="rmsprop"):
+def create_model(input_length, units, cell, num_layers, dropout,
+                loss, normalizer,bidirectional=True):
     model = Sequential()
-    for i in range(n_layers):
-        if i == 0:
-            # first layer
-            model.add(cell(units, return_sequences=True, input_shape=(None, input_length)))
-        elif i == n_layers - 1:
-            # last layer
-            model.add(cell(units, return_sequences=False))
-        else:
-            # hidden layers
-            model.add(cell(units, return_sequences=True))
-        # add dropout after each layer
-        model.add(Dropout(dropout))
+    if bidirectional == True :
+        for i in range(num_layers):
+            if i == 0:
+                # first layer
+                model.add(Bidirectional(cell(units, return_sequences=True), input_shape=(None, input_length)))
+               
+            elif i == num_layers - 1:
+                # last layer
+                model.add(cell(units, return_sequences=False))
+            else:
+                # hidden layers
+                model.add(Bidirectional(cell(units, return_sequences=True)))
+                # add dropout after each laye
+            model.add(Dropout(dropout))
+    else:
+        for i in range(num_layers):
+            if i == 0:
+                # first layer
+                model.add(cell(units, return_sequences=True, input_shape=(None, input_length)))
+               
+            elif i == num_layers - 1:
+                # last layer
+                model.add(cell(units, return_sequences=False))
+            else:
+                # hidden layers
+                model.add(cell(units, return_sequences=True))
+                # add dropout after each laye
+            model.add(Dropout(dropout))
     
-    model.add(Dense(1, activation="linear"))
-    model.compile(loss=loss, metrics=["mean_absolute_error"], optimizer=optimizer)
+    model.add(Dense(1, activation="relu"))
+    model.compile(loss=loss, metrics=["mean_absolute_error"], optimizer=normalizer)
 
     return model
