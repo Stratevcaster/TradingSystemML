@@ -13,6 +13,7 @@ from parameters import *
 from numba import cuda
 from stockstats import StockDataFrame
 
+
 def train(step, model_name):
 
     if os.path.isfile(ticker_data_filename):
@@ -26,7 +27,7 @@ def train(step, model_name):
     #model_name = f"{date_now}_{ticker}-{LOSS}-{CELL.__name__}-seq-{N_STEPS}-step-{LOOKUP_STEP}-layers-{N_LAYERS}-units-{UNITS}"
  
     model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
-                dropout=DROPOUT,normalizer=OPTIMIZER,bidirectional=bidirectional)
+                dropout=DROPOUT,normalizer=normalizer,bidirectional=bidirectional)
 
     # some tensorflow callbacks
     #model_name = f"{date_now}_{ticker}-{LOSS}-{CELL.__name__}-seq-{N_STEPS}-step-{LOOKUP_STEP}-layers-{N_LAYERS}-units-{UNITS}"
@@ -44,4 +45,4 @@ def train(step, model_name):
     model.save(os.path.join("results", model_name) + ".h5")
     K.clear_session()
     cuda.select_device(0)
-    cuda.close()
+    #  cuda.close()
