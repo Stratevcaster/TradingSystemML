@@ -27,7 +27,7 @@ def train(step, model_name):
     #model_name = f"{date_now}_{ticker}-{LOSS}-{CELL.__name__}-seq-{N_STEPS}-step-{LOOKUP_STEP}-layers-{N_LAYERS}-units-{UNITS}"
  
     model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
-                dropout=DROPOUT,normalizer=normalizer,bidirectional=bidirectional)
+                dropout=DROPOUT,normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
     # some tensorflow callbacks
     #model_name = f"{date_now}_{ticker}-{LOSS}-{CELL.__name__}-seq-{N_STEPS}-step-{LOOKUP_STEP}-layers-{N_LAYERS}-units-{UNITS}"

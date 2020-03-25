@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import random
 import datetime
-from parameters import bidirectional
+from parameters import bidirectional,activation
 from pandas.tests.frame.test_validate import dataframe
 
 
@@ -145,7 +145,7 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
 
 
 def create_model(input_length, units, cell, num_layers, dropout,
-                loss, normalizer,bidirectional=True):
+                loss, normalizer,bidirectional=True,activation=activation):
     model = Sequential()
     if bidirectional == True :
         for i in range(num_layers):
@@ -176,7 +176,7 @@ def create_model(input_length, units, cell, num_layers, dropout,
                 # add dropout after each laye
             model.add(Dropout(dropout))
     
-    model.add(Dense(1, activation="relu"))
+    model.add(Dense(1, activation=activation))
     model.compile(loss=loss, metrics=["mean_absolute_error"], optimizer=normalizer)
 
     return model

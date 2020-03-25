@@ -14,18 +14,20 @@ def test(N_DAYS_STEP):
     preciosfutuos = np.array([])
     for step in range(1,N_DAYS_STEP):
         if step == 0:
-        
-            model_name = "{date_model}_{ticker_name}-{error_loss}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
+            model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_now,
-                date_model = date_model,
                 ticker_name=ticker,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
+                normalizer=normalizer,
+                activation=activation,
                 sequence_lenght=N_STEPS,
                 step=step,
                 layers=NUM_LAYERS,
                 neurons=UNITS
                 )
+            
+            
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos datos si ya existen no se cargan
@@ -34,7 +36,7 @@ def test(N_DAYS_STEP):
 
         # contruimos el modelo
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
-                    dropout=DROPOUT, normalizer=normalizer,bidirectional=False)
+                    dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
             model.load_weights(model_path)
@@ -59,17 +61,19 @@ def test(N_DAYS_STEP):
             predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
             preciosfutuos=np.append(preciosfutuos, [predicted_price])
         elif step < N_DAYS_STEP and step< N_DAYS_STEP-1:
-            model_name = "{date_model}_{ticker_name}-{error_loss}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
+            model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_now,
-                date_model = date_model,
                 ticker_name=ticker,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
+                normalizer=normalizer,
+                activation=activation,
                 sequence_lenght=N_STEPS,
                 step=step,
                 layers=NUM_LAYERS,
                 neurons=UNITS
                 )
+            
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos los datos
@@ -78,7 +82,7 @@ def test(N_DAYS_STEP):
 
         # construimos el modelo
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
-                    dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional)
+                    dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
             model.load_weights(model_path)
@@ -104,17 +108,19 @@ def test(N_DAYS_STEP):
             
             preciosfutuos=np.append(preciosfutuos,[predicted_price])
         elif step == N_DAYS_STEP-1:
-            model_name = "{date_model}_{ticker_name}-{error_loss}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
+            model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_now,
                 ticker_name=ticker,
-                date_model = date_model,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
+                normalizer=normalizer,
+                activation=activation,
                 sequence_lenght=N_STEPS,
                 step=step,
                 layers=NUM_LAYERS,
                 neurons=UNITS
                 )
+            
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos los datos 
@@ -123,7 +129,7 @@ def test(N_DAYS_STEP):
 
         # Construimos el modelo 
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
-                    dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional)
+                    dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
             model.load_weights(model_path)

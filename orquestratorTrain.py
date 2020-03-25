@@ -5,7 +5,7 @@ Created on Feb 14, 2020
 '''
 from train import train
 import gc
-from parameters import  date_now,LOSS,CELL,N_STEPS,NUM_LAYERS,UNITS,ticker, N_DAYS_STEP,COLUMN_NAME,bidirectional
+from parameters import  date_now,LOSS,CELL,N_STEPS,NUM_LAYERS,UNITS,ticker, N_DAYS_STEP,COLUMN_NAME,bidirectional,normalizer,activation
 import tensorflow as tf
 import os
 
@@ -22,11 +22,13 @@ for step in range(1,N_DAYS_STEP):
     if not os.path.isdir("data"):
         os.mkdir("data")
 
-    model_name = "{now}_{ticker_name}-{error_loss}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
+    model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
         now=date_now,
         ticker_name=ticker,
         error_loss=LOSS,
         cell_name=CELL.__name__,
+        normalizer=normalizer,
+        activation=activation,
         sequence_lenght=N_STEPS,
         step=step,
         layers=NUM_LAYERS,
