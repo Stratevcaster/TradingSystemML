@@ -69,7 +69,7 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
     # Comprobar si se trata de un strig o se le pasa un DataFrame
     if isinstance(ticker, str):
         # cargar de la liberia
-        dataframe = si.get_data(ticker,start_date='01/01/2005')
+        dataframe = si.get_data(ticker)
     elif isinstance(ticker, pd.DataFrame):
         # already loaded, use it directly
         dataframe = ticker
@@ -180,3 +180,16 @@ def create_model(input_length, units, cell, num_layers, dropout,
     model.compile(loss=loss, metrics=["mean_absolute_error"], optimizer=normalizer)
 
     return model
+def build_model():
+    model = Sequential([
+    layers.Dense(64, activation='relu', input_shape=[len(train_dataset.keys())]),
+    layers.Dense(64, activation='relu'),
+    layers.Dense(1)
+  ])
+
+  optimizer = tf.keras.optimizers.RMSprop(0.001)
+
+  model.compile(loss='mse',
+                optimizer=optimizer,
+                metrics=['mae', 'mse'])
+  return model 

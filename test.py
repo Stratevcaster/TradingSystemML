@@ -15,7 +15,7 @@ def test(N_DAYS_STEP):
     for step in range(1,N_DAYS_STEP):
         if step == 0:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
-                now=date_now,
+                now=date_model,
                 ticker_name=ticker,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
@@ -62,7 +62,7 @@ def test(N_DAYS_STEP):
             preciosfutuos=np.append(preciosfutuos, [predicted_price])
         elif step < N_DAYS_STEP and step< N_DAYS_STEP-1:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
-                now=date_now,
+                now=date_model,
                 ticker_name=ticker,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
@@ -109,7 +109,7 @@ def test(N_DAYS_STEP):
             preciosfutuos=np.append(preciosfutuos,[predicted_price])
         elif step == N_DAYS_STEP-1:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
-                now=date_now,
+                now=date_model,
                 ticker_name=ticker,
                 error_loss=LOSS,
                 cell_name=CELL.__name__,
@@ -138,7 +138,7 @@ def test(N_DAYS_STEP):
             mse, mae = model.evaluate(data["X_test"], data["y_test"])
             # calcular error absoluto medio
             mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
-            print("Mean Absolute Error:", mean_absolute_error)
+            print("Error absoluto medio:", mean_absolute_error)
             # PREDECIR EL EL PRECIO FUTURO
             classification=False
             last_sequence = data["last_sequence"][:N_STEPS]
@@ -163,8 +163,12 @@ def test(N_DAYS_STEP):
             y_pred = list(map(lambda current, future: int(float(future) > float(current)), y_pred[:-N_DAYS_STEP], y_pred[N_DAYS_STEP:]))
             
             accuracy_score(y_test, y_pred)
+            acurecy_number = accuracy_score(y_test, y_pred)
+            acurecyInt= int(acurecy_number)
             
-                    
+            print(N_DAYS_STEP,  " dias el porcentaje de acuracy es:", str(acurecy_number))
+            print(f"Precio futuro dentro de  {N_DAYS_STEP} dias es {preciosfutuos}$")
+           #  print(accuracy_score(y_test, y_pred))      
             y_test = data["y_test"]
             X_test = data["X_test"]
               
@@ -184,6 +188,7 @@ def test(N_DAYS_STEP):
             plt.ylabel("Precio")
             plt.legend(["Precio real", "Precio predicho"])
             plt.show()
+            
     return   preciosfutuos 
 
 
