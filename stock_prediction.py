@@ -23,6 +23,12 @@ from pandas.tests.frame.test_validate import dataframe
 #Funcion para Tingo a Json a Frame
 # @return frame
 
+# A function to read a stock's data from Tiingo
+# @param stock_sym: the stock's symbol
+# @param start_date: the start date of the data
+# @param end_date: the end date of the data
+# @param index_as_date: whether to set the index as the date or not
+# @return: the stock's data as a DataFrame
 def get_stock_dataJSON(stock_sym, start_date, end_date,index_as_date = True):
     base_url = 'https://api.tiingo.com/tiingo/daily/'+stock_sym + '/prices?'
     token = 'da2ac110cdd4a6586434808a9c2a275af4fc5693'
@@ -191,3 +197,10 @@ def build_model():
 
     model.compile(loss='mse', optimizer=optimizer, metrics=['mae', 'mse'])
     return model
+
+# A function taking a JSON and returning a DataFrame
+# @param json: the JSON to convert
+# @return: the DataFrame
+def json_to_df(json):
+    df = pd.DataFrame.from_records(json).T
+    return df
