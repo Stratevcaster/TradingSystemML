@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 from stock_prediction import create_model, load_data
 
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
@@ -6,8 +8,6 @@ import pandas as pd
 from parameters import *
 from numba import cuda
 from stockstats import StockDataFrame
-
-from __future__ import absolute_import, division, print_function, unicode_literals
 import pathlib
 import matplotlib.pyplot as plt
 import pandas as pd
