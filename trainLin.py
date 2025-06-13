@@ -6,11 +6,9 @@ from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 import os
 import pandas as pd
 from parameters import *
-from numba import cuda
 from stockstats import StockDataFrame
 import pathlib
 import matplotlib.pyplot as plt
-import pandas as pd
 import seaborn as sns
 
 import tensorflow as tf
