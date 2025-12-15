@@ -17,7 +17,6 @@ import pandas as pd
 import random
 import datetime
 from parameters import bidirectional,activation
-from pandas.tests.frame.test_validate import dataframe
 
 
 #Funcion para Tingo a Json a Frame

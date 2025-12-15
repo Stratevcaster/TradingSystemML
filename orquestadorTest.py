@@ -6,7 +6,7 @@ Created on Feb 14, 2020
 
 
 
-from test import test 
+from tester import test 
 
 from parameters import  date_now,LOSS,CELL,N_STEPS,NUM_LAYERS,UNITS,ticker, N_DAYS_STEP,COLUMN_NAME
 

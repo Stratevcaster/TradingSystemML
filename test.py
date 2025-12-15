@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 import numpy
 import requests
+import pandas as pd
+import os
+import glob
 
 def test(N_DAYS_STEP):
     preciosfutuos = np.array([])
@@ -31,15 +34,15 @@ def test(N_DAYS_STEP):
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos datos si ya existen no se cargan
-            data = load_data(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
-                         feature_columns=COLUMN_NAME, shuffle=False)
+            data = safe_load_data_for_test(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
+                         feature_columns=COLUMN_NAME)
 
         # contruimos el modelo
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
                     dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
-            model.load_weights(model_path)
+            load_weights_with_fallback(model, model_path, ticker)
     
             # evaluar el modelo 
             mse, mae = model.evaluate(data["X_test"], data["y_test"])
@@ -77,15 +80,15 @@ def test(N_DAYS_STEP):
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos los datos
-            data = load_data(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
-                         feature_columns=COLUMN_NAME, shuffle=False)
+            data = safe_load_data_for_test(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
+                         feature_columns=COLUMN_NAME)
 
         # construimos el modelo
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
                     dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
-            model.load_weights(model_path)
+            load_weights_with_fallback(model, model_path, ticker)
     
             # evaluamos
             mse, mae = model.evaluate(data["X_test"], data["y_test"])
@@ -124,15 +127,15 @@ def test(N_DAYS_STEP):
             if bidirectional == True:
                 model_name += 'bidirectional'
         # cargamos los datos 
-            data = load_data(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
-                         feature_columns=COLUMN_NAME, shuffle=False)
+            data = safe_load_data_for_test(ticker, N_STEPS, n_days=N_DAYS_STEP, test_size=TEST_SIZE,
+                         feature_columns=COLUMN_NAME)
 
         # Construimos el modelo 
             model = create_model(N_STEPS, loss=LOSS, units=UNITS, cell=CELL, num_layers=NUM_LAYERS,
                     dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
-            model.load_weights(model_path)
+            load_weights_with_fallback(model, model_path, ticker)
     
             # EVALUAMOS EL MODELO
             mse, mae = model.evaluate(data["X_test"], data["y_test"])
@@ -190,6 +193,46 @@ def test(N_DAYS_STEP):
             plt.show()
             
     return   preciosfutuos 
+
+
+def safe_load_data_for_test(ticker, n_steps, n_days, test_size, feature_columns):
+    """Attempt to load market data via `load_data`. If it fails (network/API issues),
+    build a synthetic DataFrame and call `load_data` with that instead.
+    """
+    try:
+        return load_data(ticker, n_steps, n_days=n_days, test_size=test_size, feature_columns=feature_columns, shuffle=False)
+    except Exception as e:
+        print("Failed to load market data; falling back to synthetic dataset:", repr(e))
+        # Build a synthetic dataset similar to run_real_train fallback
+        N = max(300, n_steps * 3)
+        dates = pd.date_range(end=pd.Timestamp.today(), periods=N)
+        df = pd.DataFrame(index=dates)
+        np.random.seed(42)
+        df['adjclose'] = np.cumsum(np.random.normal(0, 1, size=N)) + 100
+        df['volume'] = np.random.randint(1000, 10000, size=N)
+        df['open'] = df['adjclose'] + np.random.normal(0, 1, size=N)
+        df['high'] = df[['open', 'adjclose']].max(axis=1) + np.random.rand(N)
+        df['low'] = df[['open', 'adjclose']].min(axis=1) - np.random.rand(N)
+        for col in ['macd', 'atr', 'dma']:
+            df[col] = 0.0
+        return load_data(df, n_steps, n_days=n_days, test_size=test_size, feature_columns=feature_columns, shuffle=False)
+
+
+    def load_weights_with_fallback(model, model_path, ticker_name):
+        """Try to load weights from `model_path`. If the file doesn't exist, search `results/` for
+        the most recent model artifact that contains `ticker_name` and load that instead.
+        """
+        try:
+            model.load_weights(model_path)
+            return
+        except FileNotFoundError:
+            print(f"Model file {model_path} not found — searching for latest model for ticker '{ticker_name}'...")
+            candidates = glob.glob(os.path.join('results', f"*{ticker_name}*.h5")) + glob.glob(os.path.join('results', f"*{ticker_name}*.keras"))
+            if not candidates:
+                raise FileNotFoundError(f"No model files found for ticker '{ticker_name}' in ./results. Please run training first.")
+            latest = max(candidates, key=os.path.getmtime)
+            print(f"Loading latest model found: {latest}")
+            model.load_weights(latest)
 
 
 
