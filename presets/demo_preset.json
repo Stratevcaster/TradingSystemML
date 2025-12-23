@@ -1,0 +1,11 @@
+{
+  "ticker": "DEMO",
+  "cell": "GRU",
+  "target": "price",
+  "days": 3,
+  "epochs": 1,
+  "units": 16,
+  "layers": 1,
+  "dropout": 0.1,
+  "bidirectional": false
+}

@@ -4,6 +4,7 @@ Contains the same behavior with robust data fallback and model-loading fallback.
 '''
 from stock_prediction import create_model, load_data, np
 from parameters import *
+import sys
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 import numpy
@@ -14,7 +15,12 @@ import glob
 
 def test(N_DAYS_STEP):
     preciosfutuos = np.array([])
+    print(f"tester.test: starting test for N_DAYS_STEP={N_DAYS_STEP}")
+    import sys
+    sys.stdout.flush()
     for step in range(1,N_DAYS_STEP):
+        print(f"tester.test: entering step {step}")
+        sys.stdout.flush()
         if step == 0:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_model,
@@ -41,13 +47,35 @@ def test(N_DAYS_STEP):
                     dropout=DROPOUT, normalizer=normalizer,bidirectional=bidirectional,activation=activation)
 
             model_path = os.path.join("results", model_name) + ".h5"
+            print(f"Loading weights from {model_path} (or fallback)")
+            sys.stdout.flush()
             load_weights_with_fallback(model, model_path, ticker)
+            print("Weights loaded")
+            sys.stdout.flush()
     
             # evaluar el modelo 
-            mse, mae = model.evaluate(data["X_test"], data["y_test"])
-            # calculate the mean absolute error (inverse scaling)
-            mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
-            print("ERROR ABSOLUTO MEDIO:", mean_absolute_error)
+            print('Calling model.predict for evaluation...')
+            sys.stdout.flush()
+            y_pred = model.predict(data["X_test"], verbose=0)
+            # handle price vs returns targets
+            if data.get('target', 'price') == 'returns':
+                # inverse-transform returns and convert to prices using anchor prices per sample
+                y_pred_returns = data['y_scaler'].inverse_transform(y_pred).flatten()
+                y_test_returns = data['y_scaler'].inverse_transform(np.array(data['y_test']).reshape(-1,1)).flatten()
+                anchors = np.array(data['anchor_test'])
+                y_pred_prices = anchors * (1 + y_pred_returns)
+                y_test_prices = anchors * (1 + y_test_returns)
+                mse = np.mean(np.square(y_pred_prices - y_test_prices))
+                mae = np.mean(np.abs(y_pred_prices - y_test_prices))
+                print('model.predict evaluation finished (returns → price)')
+                print("MAE (price space):", mae)
+            else:
+                mse = np.mean(np.square(y_pred - data["y_test"]))
+                mae = np.mean(np.abs(y_pred - data["y_test"]))
+                # calculate the mean absolute error (inverse scaling)
+                mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
+                print('model.predict evaluation finished')
+                print("ERROR ABSOLUTO MEDIO:", mean_absolute_error)
             # predict the future price
             classification=False
             last_sequence = data["last_sequence"][:N_STEPS]
@@ -57,11 +85,18 @@ def test(N_DAYS_STEP):
             last_sequence = last_sequence.reshape((last_sequence.shape[1], last_sequence.shape[0]))
             # expand dimension
             last_sequence = np.expand_dims(last_sequence, axis=0)
-            # get the prediction (scaled from 0 to 1)
+            # get the prediction (scaled)
             prediction = model.predict(last_sequence)
-            # get the price (by inverting the scaling)
-            predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
+            if data.get('target', 'price') == 'returns':
+                # invert returns and multiply by last observed anchor price
+                pred_return = data['y_scaler'].inverse_transform(prediction)[0][0]
+                predicted_price = data['last_anchor_price'] * (1 + pred_return)
+            else:
+                # get the price (by inverting the scaling)
+                predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
             preciosfutuos=np.append(preciosfutuos, [predicted_price])
+            print(f"Step {step} predicted price: {predicted_price}")
+            sys.stdout.flush()
         elif step < N_DAYS_STEP and step< N_DAYS_STEP-1:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_model,
@@ -90,10 +125,26 @@ def test(N_DAYS_STEP):
             load_weights_with_fallback(model, model_path, ticker)
     
             # evaluamos
-            mse, mae = model.evaluate(data["X_test"], data["y_test"])
-            # error absoluto medio, evaluamos
-            mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
-            print("Mean Absolute Error:", mean_absolute_error)
+            print('Calling model.predict for evaluation...')
+            sys.stdout.flush()
+            y_pred = model.predict(data["X_test"], verbose=0)
+            if data.get('target', 'price') == 'returns':
+                y_pred_returns = data['y_scaler'].inverse_transform(y_pred).flatten()
+                y_test_returns = data['y_scaler'].inverse_transform(np.array(data['y_test']).reshape(-1,1)).flatten()
+                anchors = np.array(data['anchor_test'])
+                y_pred_prices = anchors * (1 + y_pred_returns)
+                y_test_prices = anchors * (1 + y_test_returns)
+                mse = np.mean(np.square(y_pred_prices - y_test_prices))
+                mae = np.mean(np.abs(y_pred_prices - y_test_prices))
+                print('model.predict evaluation finished (returns → price)')
+                print("Mean Absolute Error (price):", mae)
+            else:
+                mse = np.mean(np.square(y_pred - data["y_test"]))
+                mae = np.mean(np.abs(y_pred - data["y_test"]))
+                print('model.predict evaluation finished')
+                # error absoluto medio, evaluamos
+                mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
+                print("Mean Absolute Error:", mean_absolute_error)
             # predecir futuro precio 
             classification=False
             last_sequence = data["last_sequence"][:N_STEPS]
@@ -105,10 +156,16 @@ def test(N_DAYS_STEP):
             last_sequence = np.expand_dims(last_sequence, axis=0)
             # precio de 0 a 1 
             prediction = model.predict(last_sequence)
-            # Obtener precio
-            predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
+            if data.get('target', 'price') == 'returns':
+                pred_return = data['y_scaler'].inverse_transform(prediction)[0][0]
+                predicted_price = data['last_anchor_price'] * (1 + pred_return)
+            else:
+                # Obtener precio
+                predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
             
             preciosfutuos=np.append(preciosfutuos,[predicted_price])
+            print(f"Step {step} predicted price: {predicted_price}")
+            sys.stdout.flush()
         elif step == N_DAYS_STEP-1:
             model_name = "{now}_{ticker_name}-{error_loss}-{activation}-{normalizer}-{cell_name}-seq-{sequence_lenght}-step-{step}-layers-{layers}-units-{neurons}".format(
                 now=date_model,
@@ -137,10 +194,20 @@ def test(N_DAYS_STEP):
             load_weights_with_fallback(model, model_path, ticker)
     
             # EVALUAMOS EL MODELO
-            mse, mae = model.evaluate(data["X_test"], data["y_test"])
+            print('Calling model.predict for evaluation...')
+            sys.stdout.flush()
+            y_pred = model.predict(data["X_test"], verbose=0)
+            mse = np.mean(np.square(y_pred - data["y_test"]))
+            mae = np.mean(np.abs(y_pred - data["y_test"]))
+            print('model.predict evaluation finished')
+            sys.stdout.flush()
             # calcular error absoluto medio
-            mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
-            print("Error absoluto medio:", mean_absolute_error)
+            if data.get('target', 'price') == 'returns':
+                # we already computed MAE in price space above
+                pass
+            else:
+                mean_absolute_error = data["column_scaler"]["adjclose"].inverse_transform(mae.reshape(1, -1))[0][0]
+                print("Error absoluto medio:", mean_absolute_error)
             # PREDECIR EL EL PRECIO FUTURO
             classification=False
             last_sequence = data["last_sequence"][:N_STEPS]
@@ -152,17 +219,33 @@ def test(N_DAYS_STEP):
             last_sequence = np.expand_dims(last_sequence, axis=0)
             # obtener precio de 0 a 1, normalizado
             prediction = model.predict(last_sequence)
-            # obtener los precios revirtiendo la normalizacion
-            predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
+            if data.get('target', 'price') == 'returns':
+                pred_return = data['y_scaler'].inverse_transform(prediction)[0][0]
+                predicted_price = data['last_anchor_price'] * (1 + pred_return)
+            else:
+                # obtener los precios revirtiendo la normalizacion
+                predicted_price = column_scaler["adjclose"].inverse_transform(prediction)[0][0]
             
             preciosfutuos=np.append(preciosfutuos,[predicted_price])
+            print(f"Step {step} predicted price: {predicted_price}")
+            sys.stdout.flush()
             y_test = data["y_test"]
             X_test = data["X_test"]
             y_pred = model.predict(X_test)
-            y_test = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(np.expand_dims(y_test, axis=0)))
-            y_pred = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(y_pred))
-            y_test = list(map(lambda current, future: int(float(future) > float(current)), y_test[:-N_DAYS_STEP], y_test[N_DAYS_STEP:]))
-            y_pred = list(map(lambda current, future: int(float(future) > float(current)), y_pred[:-N_DAYS_STEP], y_pred[N_DAYS_STEP:]))
+            if data.get('target', 'price') == 'returns':
+                # convert returns to prices for directional accuracy
+                y_pred_returns = data['y_scaler'].inverse_transform(y_pred).flatten()
+                y_test_returns = data['y_scaler'].inverse_transform(np.array(y_test).reshape(-1,1)).flatten()
+                anchors = np.array(data['anchor_test'])
+                y_test_prices = anchors * (1 + y_test_returns)
+                y_pred_prices = anchors * (1 + y_pred_returns)
+                y_test = list(map(lambda current, future: int(float(future) > float(current)), y_test_prices[:-N_DAYS_STEP], y_test_prices[N_DAYS_STEP:]))
+                y_pred = list(map(lambda current, future: int(float(future) > float(current)), y_pred_prices[:-N_DAYS_STEP], y_pred_prices[N_DAYS_STEP:]))
+            else:
+                y_test = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(np.expand_dims(y_test, axis=0)))
+                y_pred = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(y_pred))
+                y_test = list(map(lambda current, future: int(float(future) > float(current)), y_test[:-N_DAYS_STEP], y_test[N_DAYS_STEP:]))
+                y_pred = list(map(lambda current, future: int(float(future) > float(current)), y_pred[:-N_DAYS_STEP], y_pred[N_DAYS_STEP:]))
             
             accuracy_score(y_test, y_pred)
             acurecy_number = accuracy_score(y_test, y_pred)
@@ -175,22 +258,36 @@ def test(N_DAYS_STEP):
             X_test = data["X_test"]
               
             y_pred = model.predict(X_test)
-            
-            y_test = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(np.expand_dims(y_test, axis=0)))
-            y_pred = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(y_pred))
-            y_pred_new = numpy.append(y_pred, preciosfutuos)
+            if data.get('target', 'price') == 'returns':
+                y_pred_returns = data['y_scaler'].inverse_transform(y_pred).flatten()
+                y_test_returns = data['y_scaler'].inverse_transform(np.array(y_test).reshape(-1,1)).flatten()
+                anchors = np.array(data['anchor_test'])
+                y_test_prices = anchors * (1 + y_test_returns)
+                y_pred_prices = anchors * (1 + y_pred_returns)
+                y_pred_new = numpy.append(y_pred_prices, preciosfutuos)
+            else:
+                y_test = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(np.expand_dims(y_test, axis=0)))
+                y_pred = np.squeeze(data["column_scaler"]["adjclose"].inverse_transform(y_pred))
+                y_pred_new = numpy.append(y_pred, preciosfutuos)
             days = 365
             years = 15
             total_days = -years*days
             total_predicted_days = total_days - len(preciosfutuos)
                 
+            # Save the plot to file instead of blocking with plt.show()
+            os.makedirs('results', exist_ok=True)
+            plot_path = os.path.join('results', f'prediction_{ticker}_{date_model}.png')
             plt.plot(y_test[total_days:], c='b')
             plt.plot(y_pred_new[total_days:], c='r')
             plt.xlabel("Dias")
             plt.ylabel("Precio")
             plt.legend(["Precio real", "Precio predicho"])
-            plt.show()
+            plt.savefig(plot_path)
+            plt.close()
+            print(f"Saved prediction plot to {plot_path}")
             
+    print('tester.test: finished, returning preciosfutuos length', len(preciosfutuos))
+    sys.stdout.flush()
     return   preciosfutuos 
 
 
@@ -227,8 +324,13 @@ def load_weights_with_fallback(model, model_path, ticker_name):
     except FileNotFoundError:
         print(f"Model file {model_path} not found — searching for latest model for ticker '{ticker_name}'...")
         candidates = glob.glob(os.path.join('results', f"*{ticker_name}*.h5")) + glob.glob(os.path.join('results', f"*{ticker_name}*.keras"))
+        print('Candidates found:', candidates)
+        sys.stdout.flush()
         if not candidates:
             raise FileNotFoundError(f"No model files found for ticker '{ticker_name}' in ./results. Please run training first.")
         latest = max(candidates, key=os.path.getmtime)
-        print(f"Loading latest model found: {latest}")
+        print(f"Loading latest model found: {latest} (size={os.path.getsize(latest)} bytes)")
+        sys.stdout.flush()
         model.load_weights(latest)
+        print('load_weights finished for', latest)
+        sys.stdout.flush()

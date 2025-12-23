@@ -1,0 +1,1 @@
+{"ticker": "TESTCO", "cell": "GRU", "target": "price", "days": 5, "epochs": 2, "units": 32, "layers": 1, "dropout": 0.1, "bidirectional": false}

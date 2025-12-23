@@ -1,11 +1,13 @@
 ## Note: TensorFlow may not have wheels for very new Python versions (e.g., 3.14). If install fails, use Python 3.10/3.11.
-tensorflow
-numpy
-pandas
-scikit-learn
+tensorflow>=2.10
+numpy>=1.23.0
+pandas>=1.5.0
+scikit-learn>=1.1.0
 yahoo_fin
 requests
-matplotlib
+matplotlib>=3.5.0
 seaborn
-numba
+numba>=0.56.0
 yfinance
+pillow>=9.0.0
+pycoingecko>=3.0.0

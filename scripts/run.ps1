@@ -36,6 +36,11 @@ switch ($Target) {
         conda run -n $EnvName python scripts/run_real_train.py $Epochs $Ticker
         break
     }
+    'btc-test' {
+        Write-Host "Running BTC experiment: epochs=$Epochs days=$Ticker" # using $Ticker param slot to pass DAYS
+        conda run -n $EnvName python scripts/run_btc_experiment.py $Epochs $Ticker
+        break
+    }
     'orchestrator-train' {
         Write-Host "Running full orchestrator train (orquestratorTrain.py)"
         conda run -n $EnvName python .\orquestratorTrain.py

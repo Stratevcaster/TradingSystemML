@@ -185,12 +185,17 @@ def test(N_DAYS_STEP):
             total_days = -years*days
             total_predicted_days = total_days - len(preciosfutuos)
                 
+            # Save the plot to file instead of blocking with plt.show()
+            os.makedirs('results', exist_ok=True)
+            plot_path = os.path.join('results', f'prediction_{ticker}_{date_model}.png')
             plt.plot(y_test[total_days:], c='b')
             plt.plot(y_pred_new[total_days:], c='r')
             plt.xlabel("Dias")
             plt.ylabel("Precio")
             plt.legend(["Precio real", "Precio predicho"])
-            plt.show()
+            plt.savefig(plot_path)
+            plt.close()
+            print(f"Saved prediction plot to {plot_path}")
             
     return   preciosfutuos 
 

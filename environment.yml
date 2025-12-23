@@ -1,0 +1,15 @@
+name: trading
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - tensorflow
+  - pandas
+  - matplotlib
+  - pillow
+  - numpy
+  - scikit-learn
+  - numba
+  - pip
+  - pip:
+    - pycoingecko

@@ -69,7 +69,7 @@ def get_stock_dataJSON(stock_sym, start_date, end_date,index_as_date = True):
 
 
 def load_data(ticker, n_steps=70, shuffle=True, n_days=10, 
-                test_size=0.3, feature_columns=['adjclose', 'volume', 'open', 'high', 'low']):
+                test_size=0.3, feature_columns=['adjclose', 'volume', 'open', 'high', 'low'], target='price'):
   
     # Comprobar si se trata de un strig o se le pasa un DataFrame
     if isinstance(ticker, str):
@@ -81,6 +81,19 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
     else:
         raise TypeError("ticker can be either a str or a `pd.DataFrame` instances")
     dataframe = StockDataFrame.retype(dataframe)
+    # keep an unscaled copy of adjclose for computing returns/anchors
+    orig_adj = dataframe['adjclose'].copy()
+    # add simple technical indicators which can be included in `feature_columns`
+    dataframe['sma10'] = dataframe['adjclose'].rolling(window=10).mean()
+    dataframe['sma30'] = dataframe['adjclose'].rolling(window=30).mean()
+    # simple RSI implementation (14 period)
+    delta = dataframe['adjclose'].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    rs = avg_gain / (avg_loss + 1e-9)
+    dataframe['rsi14'] = 100 - (100 / (1 + rs))
     dataframe['macd'] = dataframe.get('macd') # calculate MACD
     dataframe['atr'] = dataframe.get('atr') # calculate ATR
     dataframe['dma'] = dataframe.get('dma') # calculate DMA
@@ -103,8 +116,18 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
     # add the MinMaxScaler instances to the result returned
     result["column_scaler"] = column_scaler
 
-    # add the target column (label) by shifting by `lookup_step`
-    dataframe['future'] = dataframe['adjclose'].shift(-n_days)
+    # add the target column (label)
+    result['target'] = target
+    if target == 'returns':
+        # compute forward pct-change (future / current - 1) using original prices and scale it
+        from sklearn.preprocessing import StandardScaler
+        future_returns = (orig_adj.shift(-n_days) / orig_adj) - 1
+        y_scaler = StandardScaler()
+        dataframe['future'] = y_scaler.fit_transform(np.expand_dims(future_returns.values, axis=1))
+        result['y_scaler'] = y_scaler
+    else:
+        # predict price (uses already-scaled adjclose)
+        dataframe['future'] = dataframe['adjclose'].shift(-n_days)
 
     # last `lookup_step` columns contains NaN in future column
     # get them before droping NaNs
@@ -115,11 +138,20 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
 
     sequence_data = []
     sequences = deque(maxlen=n_steps)
+    anchor_prices = deque(maxlen=n_steps)
+    orig_adj_vals = orig_adj.values
 
-    for entry, target in zip(dataframe[feature_columns].values, dataframe['future'].values):
+    # build sequences and capture the anchor (current) price for each sequence
+    feature_vals = dataframe[feature_columns].values
+    future_vals = dataframe['future'].values
+    for i in range(len(feature_vals)):
+        entry = feature_vals[i]
+        tgt = future_vals[i]
         sequences.append(entry)
+        # anchor price (unscaled) corresponding to the last element in the sequence
+        anchor = orig_adj_vals[i]
         if len(sequences) == n_steps:
-            sequence_data.append([np.array(sequences), target])
+            sequence_data.append([np.array(sequences), tgt, anchor])
 
     # get the last sequence by appending the last `n_step` sequence with `lookup_step` sequence
     # for instance, if n_steps=50 and lookup_step=10, last_sequence should be of 59 (that is 50+10-1) length
@@ -130,11 +162,12 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
     # se anade al resultado
     result['last_sequence'] = last_sequence
     
-    # construct the X's and y's
-    X, y = [], []
-    for seq, target in sequence_data:
+    # construct the X's, y's and anchor prices
+    X, y, anchor_prices_list = [], [], []
+    for seq, target, anchor in sequence_data:
         X.append(seq)
         y.append(target)
+        anchor_prices_list.append(anchor)
 
     # convert to numpy arrays
     X = np.array(X)
@@ -143,9 +176,12 @@ def load_data(ticker, n_steps=70, shuffle=True, n_days=10,
     # reshape X to fit the neural network
     X = X.reshape((X.shape[0], X.shape[2], X.shape[1]))
     
-    # Dividimos el resultado
-    result["X_train"], result["X_test"], result["y_train"], result["y_test"] = train_test_split(X, y, 
-                                                                                test_size=test_size, shuffle=shuffle)
+    # split and keep anchor prices aligned with samples
+    result["X_train"], result["X_test"], result["y_train"], result["y_test"], result["anchor_train"], result["anchor_test"] = \
+        train_test_split(X, y, anchor_prices_list, test_size=test_size, shuffle=shuffle)
+
+    # last anchor price (unscaled) to be used for multi-step forecasting inversion
+    result['last_anchor_price'] = float(orig_adj_vals[-1])
     return result
 
 

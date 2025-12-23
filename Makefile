@@ -18,6 +18,7 @@ help:
 	@echo "  quick-train        - Run quick synthetic 1-epoch training (no network)"
 	@echo "  quick-test         - Run quick prediction test (no network)"
 	@echo "  real-train         - Run short real training: make real-train EPOCHS=3 TICKER=AAPL"
+	@echo "  btc-test           - Run a BTC experiment (train + test): make btc-test EPOCHS=3 DAYS=10"
 	@echo "  run-orchestrator-train - Run orquestratorTrain.py (long-running)"
 	@echo "  run-orchestrator-test  - Run orquestadorTest.py"
 	@echo "  clean              - Remove generated artifacts (results, caches)"
@@ -50,6 +51,15 @@ quick-test:
 real-train:
 	@echo "Running short real training: epochs=$(EPOCHS) ticker=$(TICKER)"
 	@conda run -n $(CONDA_ENV) python scripts/run_real_train.py $(EPOCHS) $(TICKER)
+
+
+btc-test:
+	@echo "Running BTC short experiment: epochs=$(EPOCHS) days=$(DAYS)"
+	@conda run -n $(CONDA_ENV) python scripts/run_btc_experiment.py $(EPOCHS) $(DAYS)
+
+btc-10day:
+	@echo "Running BTC short training + 10-day test: epochs=$(EPOCHS)"
+	@conda run -n $(CONDA_ENV) python scripts/run_btc_10day.py $(EPOCHS)
 
 run-orchestrator-train:
 	@echo "Running orchestrator train (may be long)..."

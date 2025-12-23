@@ -1,11 +1,79 @@
 # TradingSystemML
 
-## Setup (virtual environment & dependencies) ✅
+## ⚡ Fastest Setup: One-Click Bootstrap
+
+If you don't have conda or a virtual environment set up, run the bootstrap script:
+
+**Windows PowerShell:**
+```powershell
+py -3 bootstrap.py
+```
+
+Or double-click `bootstrap.bat` on Windows.
+
+This will:
+1. Check if conda is installed; if not, offer to install Miniforge.
+2. Or, fall back to creating a Python 3.10 venv + pip setup.
+3. Guide you through the steps with clear prompts.
+
+---
+
+## Quick Start: Launch the GUI 🚀
+
+After bootstrap completes (or if you already have an environment):
+
+**If you just ran bootstrap with conda:**
+```powershell
+conda activate trading
+python scripts/gui_app.py
+```
+
+**If you just ran bootstrap with venv:**
+```powershell
+.\.venv\Scripts\Activate.ps1
+python scripts/gui_app.py
+```
+
+**Auto-launcher (if Python 3.10/3.11):**
+```powershell
+py -3 launch_gui.py
+```
+
+---
+
+## Manual Setup (advanced)
+
+### Option 1: With conda (if conda already installed)
+```powershell
+conda create -n trading -y --file environment.yml
+conda activate trading
+python scripts/gui_app.py
+```
+
+### Option 2: With pip + venv (Python 3.10/3.11)
+```powershell
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/gui_app.py
+```
+
+### Option 3: Auto-launcher (attempts auto-install)
+```powershell
+py -3 launch_gui.py
+```
+
+---
+
+## Setup (for development)
+
+If you prefer a manual venv setup (for development):
 
 1. Create a virtual environment (Windows PowerShell):
 
 ```powershell
-py -3 -m venv .venv
+py -3.10 -m venv .venv
 ```
 
 2. Activate the venv (PowerShell):
@@ -28,26 +96,31 @@ python .\orquestratorTrain.py
 python .\orquestadorTest.py
 ```
 
-If you prefer `cmd.exe` for activation use `.venv\Scripts\activate.bat`.
+Or launch the GUI:
+```powershell
+python scripts/gui_app.py
+```
 
-Files added by this setup: `requirements.txt` (see repository root).
+If you prefer `cmd.exe` for activation use `.venv\Scripts\activate.bat`.
 
 ---
 
-⚠️ Note about Python/TensorFlow compatibility
+## Troubleshooting
 
-- TensorFlow may not have wheels for very new Python versions (e.g., Python 3.14).
-- If `pip install -r requirements.txt` fails on `tensorflow`, install Python 3.10 or 3.11 and recreate the venv:
+### Python version incompatibility
 
-```powershell
-# install a compatible python (download from python.org), then:
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
+If you're on Python 3.12+, TensorFlow may not have wheels available on PyPI. The **bootstrap script** handles this automatically by:
+- Installing Miniforge (which provides prebuilt TensorFlow packages for Python 3.10/3.11), or
+- Using Python 3.10 with pip (if you install it separately).
 
-Or, if you use Anaconda/Miniconda, create a conda env with a compatible Python and install tensorflow with conda-forge.
+If you manually encounter a "no matching distribution for tensorflow" error, use the bootstrap script or install Python 3.10/3.11.
+
+---
+
+## GUI Usage
+
+See `scripts/gui_README.md` for full GUI documentation and features.
+
 
 ### Conda setup (preferred for TensorFlow) 🐍🔧
 
@@ -152,6 +225,25 @@ python .\orquestadorTest.py
 # Or use the synthetic prediction quick test (no network)
 python scripts/run_quick_test.py
 ```
+
+GUI (Tkinter)
+-------------
+
+There is a simple Tkinter GUI available at `scripts/gui_app.py` that provides an easy way to run training and testing flows from a desktop UI. It supports:
+
+- Selecting `ticker`, model type (`LSTM`/`GRU`), `target` (`price`/`returns`), days to predict, epochs, units, layers and dropout.
+- Buttons: **Train**, **Test**, **Train + Test**, **Show latest plot**, **Choose plot...**, **Save preset**, **Load preset**, **Open results folder**.
+- Inline plot viewing of prediction images saved in `results/plots/` and saving/loading presets in `presets/`.
+ - Inline plot viewing of prediction images saved in `results/plots/` and rendering of prediction CSVs (`*_preds.csv`) with Matplotlib inline in the GUI.
+ - Presets manager (rename/delete) and auto-refresh: the GUI can automatically show the latest prediction plot when training completes and includes a preset manager for rename/delete of saved presets.
+
+Run it from your trading conda env:
+
+```powershell
+& "$env:USERPROFILE\miniforge3\envs\trading\python.exe" scripts/gui_app.py
+```
+
+See `scripts/gui_README.md` for a short guide and examples.
 
 ---
 
