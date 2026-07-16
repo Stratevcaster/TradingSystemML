@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Project artifacts
+/artifacts/
+/data/
+/results/
+/logs/
+
+# OS / IDE
+.DS_Store
